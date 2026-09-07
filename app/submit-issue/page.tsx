@@ -21,6 +21,7 @@ import { CitizenBottomNav } from '@/components/citizen/bottom-nav';
 import { CitizenLocationPicker } from '@/components/maps/citizen-location-picker';
 import { MediaUploader, type UploadedMediaItem } from '@/components/citizen/media-uploader';
 import { VoiceAssistantModal } from '@/components/voice/voice-assistant-modal';
+import { useAuth } from '@/hooks/use-auth';
 import { Priority, ComplaintSource } from '@/types/enums';
 
 interface CategoryItem {
@@ -72,20 +73,12 @@ export default function SubmitIssuePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user: authUser } = useAuth();
   const [submittedComplaint, setSubmittedComplaint] = useState<SubmittedComplaint | null>(null);
   const [copied, setCopied] = useState(false);
-  const [currentUser, setCurrentUser] = useState<{ id: string; role: string; display_name: string } | null>(null);
+  const currentUser = authUser ? { id: authUser.id, role: authUser.role, display_name: authUser.display_name || '' } : null;
 
   useEffect(() => {
-    // Check current user role
-    fetch('/api/auth/me')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.data?.user) {
-          setCurrentUser(data.data.user);
-        }
-      })
-      .catch(() => {});
 
     async function loadCategories() {
       try {
