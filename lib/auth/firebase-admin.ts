@@ -119,19 +119,26 @@ export async function verifyFirebaseIdToken(token: string): Promise<VerifiedFire
 
     const parts = token.split('.');
     if (parts.length === 3) {
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
-      const uid = payload.user_id || payload.sub;
+      let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (base64.length % 4) {
+        base64 += '=';
+      }
+      const jsonStr = typeof Buffer !== 'undefined'
+        ? Buffer.from(base64, 'base64').toString('utf-8')
+        : (typeof atob === 'function' ? atob(base64) : '');
+      const payload = JSON.parse(jsonStr);
+      const uid = payload.user_id || payload.sub || payload.uid;
       if (uid) {
         return {
           uid: uid,
           email: payload.email || `${uid}@citizen.civicconnect.tn.gov.in`,
-          name: payload.name || payload.email?.split('@')[0] || 'Citizen',
-          picture: payload.picture,
+          name: payload.name || payload.display_name || payload.email?.split('@')[0] || 'Citizen',
+          picture: payload.picture || payload.avatar_url,
         };
       }
     }
-  } catch {
-    // Fall through to error
+  } catch (parseErr) {
+    console.warn('[JWT Payload decode error]:', parseErr);
   }
 
   throw new Error(

@@ -15,7 +15,6 @@ import { createSessionToken, getSessionCookieOptions } from '@/lib/auth/session'
 import { UserRole } from '@/types/enums';
 import type { AuthUser } from '@/types/auth';
 import type { Profile } from '@/types/database';
-import { randomUUID } from 'crypto';
 
 export async function POST(request: Request) {
   try {
@@ -110,7 +109,7 @@ export async function POST(request: Request) {
         if (insertError || !createdProfile) {
           console.warn('[Supabase Profile Insert Warning]:', insertError?.message);
           userProfile = {
-            id: randomUUID(),
+            id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'ae1b5808-1d92-4de3-8343-0becfa572857',
             email: email,
             display_name: firebaseUser.name || 'Citizen',
             role: UserRole.CITIZEN,
@@ -135,7 +134,7 @@ export async function POST(request: Request) {
     } catch (supabaseError) {
       console.warn('[Supabase Admin Client unavailable, fallback to token]:', supabaseError);
       userProfile = {
-        id: randomUUID(),
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'ae1b5808-1d92-4de3-8343-0becfa572857',
         email: firebaseUser.email || `${firebaseUser.uid}@citizen.civicconnect.tn.gov.in`,
         display_name: firebaseUser.name || 'Citizen',
         role: UserRole.CITIZEN,

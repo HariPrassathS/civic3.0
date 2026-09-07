@@ -9,15 +9,21 @@ import type { AuthUser } from '@/types/auth';
 export const SESSION_COOKIE_NAME = 'civic_session';
 export const DEFAULT_SESSION_EXPIRATION = 7 * 24 * 60 * 60; // 7 days in seconds
 
-import { createHash } from 'crypto';
-
 function getSigningKey(): Uint8Array {
   const secretStr =
     process.env.SESSION_SECRET ||
     process.env.CRON_SECRET ||
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     'civicconnect-tn-secure-default-session-key-32chars!';
-  return createHash('sha256').update(secretStr).digest();
+  
+  // Deterministic 32-byte (256-bit) key generation compatible with Edge Runtime & Node
+  const encoder = new TextEncoder();
+  const bytes = encoder.encode(secretStr);
+  const key = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    key[i] = (bytes[i % bytes.length] ^ ((i + 1) * 37)) & 0xff;
+  }
+  return key;
 }
 
 /**
