@@ -1,0 +1,53 @@
+{
+  "name": "civic3.0",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "node --max-http-header-size=65536 ./node_modules/next/dist/bin/next dev",
+    "build": "next build",
+    "start": "node --max-http-header-size=65536 ./node_modules/next/dist/bin/next start",
+    "lint": "eslint",
+    "test:auth": "tsx scripts/test-auth-roles.ts",
+    "test:citizen": "tsx scripts/test-citizen-api.ts",
+    "test:engine": "tsx scripts/test-complaint-engine.ts",
+    "test:dashboards": "tsx scripts/test-phase5-dashboards.ts",
+    "test:escalation": "tsx scripts/test-sla-escalation.ts",
+    "test:ai": "tsx scripts/test-ai-engine.ts",
+    "test:voice": "tsx --env-file=.env.local scripts/test-voice-assistant.ts",
+    "test:live": "tsx --env-file=.env.local scripts/test-live-credentials.ts",
+    "db:migrate": "tsx --env-file=.env.local scripts/apply-migrations.ts"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.6",
+    "@supabase/supabase-js": "^2.115.0",
+    "@types/jspdf": "^1.3.3",
+    "@types/leaflet": "^1.9.22",
+    "@types/leaflet.heat": "^0.2.5",
+    "exceljs": "^4.4.0",
+    "firebase": "^12.18.0",
+    "firebase-admin": "^14.3.0",
+    "groq-sdk": "^1.6.0",
+    "jose": "^6.2.11",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "leaflet": "^1.9.4",
+    "leaflet.heat": "^0.2.0",
+    "lucide-react": "^1.41.0",
+    "next": "16.3.4",
+    "pg": "^8.23.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.4",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.13",
+    "typescript": "^5"
+  }
+}
