@@ -483,6 +483,22 @@ export class ComplaintEngine {
           ai_sentiment: newComplaint.ai_sentiment,
         });
 
+        // Synchronize Citizen Profile Ward & District with their latest active complaint location
+        if (citizenId && (newComplaint.ward || newComplaint.district)) {
+          try {
+            await supabase
+              .from('profiles')
+              .update({
+                ward_id: newComplaint.ward,
+                district: newComplaint.district,
+                updated_at: nowIso,
+              })
+              .eq('id', citizenId);
+          } catch (profSyncErr) {
+            console.warn('[Profile Sync Warning]:', profSyncErr);
+          }
+        }
+
         // Insert Complaint Media with AI Evidence Analysis
         if (mediaRecords.length > 0) {
           await supabase.from('complaint_media').insert(

@@ -101,6 +101,11 @@ export default function CitizenDashboardPage() {
   const resolvedCount = myComplaints.filter((c) => c.status === 'resolved' || c.status === 'closed').length;
   const unreadNotifs = notifications.filter((n) => !n.is_read).length;
 
+  const latestComplaint = myComplaints[0];
+  const effectiveDistrict = latestComplaint?.district || user?.district || 'Chennai';
+  const effectiveWard = latestComplaint?.ward || user?.ward_id;
+  const effectiveLocation = effectiveWard ? `${effectiveDistrict} (Ward ${effectiveWard})` : effectiveDistrict;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col pb-20 sm:pb-8 selection:bg-emerald-500 selection:text-white transition-colors duration-200">
       <CitizenHeader />
@@ -124,7 +129,7 @@ export default function CitizenDashboardPage() {
                 </span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {user?.email || 'citizen@civicconnect.tn.gov.in'} • {user?.district || 'Chennai'}
+                {user?.email || 'citizen@civicconnect.tn.gov.in'} • {effectiveLocation}
               </p>
             </div>
           </div>
