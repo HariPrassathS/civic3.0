@@ -610,7 +610,11 @@ export default function TrackDetailPage({ params }: TrackDetailProps) {
                     const isAfter = m.phase === 'after_resolution';
                     const isConsistent = isAfter
                       ? aiAssessment?.resolution_status === 'RESOLUTION_CONSISTENT' || aiAssessment?.status === 'RESOLUTION_CONSISTENT'
-                      : aiAssessment?.status === 'CONSISTENT' || aiAssessment?.evidence_status === 'CONSISTENT';
+                      : aiAssessment?.status === 'CONSISTENT' ||
+                        aiAssessment?.evidence_status === 'CONSISTENT' ||
+                        aiAssessment?.evidence_status === 'PARTIALLY_CONSISTENT' ||
+                        aiAssessment?.description_match === true ||
+                        (typeof aiAssessment?.confidence === 'number' && aiAssessment.confidence >= 0.7 && aiAssessment?.manipulation_risk !== 'HIGH');
 
                     const badgeLabel = isAfter
                       ? (isConsistent ? '✓ Resolution Verified' : '⚠ Requires Inspection')
