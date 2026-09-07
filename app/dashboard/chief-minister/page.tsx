@@ -10,7 +10,7 @@ import React, { useState, useEffect } from 'react';
 import { DashboardShell } from '@/components/dashboard/dashboard-shell';
 import { KPICard } from '@/components/dashboard/kpi-card';
 import { UserRole, ComplaintStatus, Priority } from '@/types/enums';
-import { FieldWorkerMap } from '@/components/maps/field-worker-map';
+import { AdminSpatialMap } from '@/components/maps/admin-spatial-map';
 import {
   ShieldAlert,
   Award,
@@ -39,18 +39,18 @@ interface DistrictMetric {
 }
 
 const DISTRICT_DATA: DistrictMetric[] = [
-  { district: 'Chennai', totalComplaints: 3420, resolvedComplaints: 3120, resolutionRate: 91.2, slaCompliance: 94.5, criticalEscalations: 2, trustScore: 4.8 },
-  { district: 'Coimbatore', totalComplaints: 2150, resolvedComplaints: 1980, resolutionRate: 92.1, slaCompliance: 95.2, criticalEscalations: 1, trustScore: 4.9 },
-  { district: 'Madurai', totalComplaints: 1890, resolvedComplaints: 1690, resolutionRate: 89.4, slaCompliance: 91.0, criticalEscalations: 3, trustScore: 4.6 },
-  { district: 'Tiruchirappalli', totalComplaints: 1420, resolvedComplaints: 1310, resolutionRate: 92.3, slaCompliance: 93.8, criticalEscalations: 0, trustScore: 4.8 },
-  { district: 'Salem', totalComplaints: 1340, resolvedComplaints: 1220, resolutionRate: 91.0, slaCompliance: 92.4, criticalEscalations: 1, trustScore: 4.7 },
-  { district: 'Tirunelveli', totalComplaints: 980, resolvedComplaints: 890, resolutionRate: 90.8, slaCompliance: 91.5, criticalEscalations: 1, trustScore: 4.6 },
-  { district: 'Erode', totalComplaints: 850, resolvedComplaints: 790, resolutionRate: 92.9, slaCompliance: 94.1, criticalEscalations: 0, trustScore: 4.8 },
-  { district: 'Vellore', totalComplaints: 1120, resolvedComplaints: 960, resolutionRate: 85.7, slaCompliance: 86.2, criticalEscalations: 4, trustScore: 4.2 },
-  { district: 'Thanjavur', totalComplaints: 910, resolvedComplaints: 830, resolutionRate: 91.2, slaCompliance: 92.0, criticalEscalations: 1, trustScore: 4.6 },
-  { district: 'Dharmapuri', totalComplaints: 760, resolvedComplaints: 630, resolutionRate: 82.9, slaCompliance: 83.5, criticalEscalations: 5, trustScore: 4.0 },
-  { district: 'Cuddalore', totalComplaints: 890, resolvedComplaints: 750, resolutionRate: 84.3, slaCompliance: 85.0, criticalEscalations: 4, trustScore: 4.1 },
-  { district: 'Kanyakumari', totalComplaints: 640, resolvedComplaints: 605, resolutionRate: 94.5, slaCompliance: 96.0, criticalEscalations: 0, trustScore: 4.9 },
+  { district: 'Chennai', totalComplaints: 342, resolvedComplaints: 312, resolutionRate: 91.2, slaCompliance: 94.5, criticalEscalations: 2, trustScore: 4.8 },
+  { district: 'Coimbatore', totalComplaints: 215, resolvedComplaints: 198, resolutionRate: 92.1, slaCompliance: 95.2, criticalEscalations: 1, trustScore: 4.9 },
+  { district: 'Madurai', totalComplaints: 189, resolvedComplaints: 169, resolutionRate: 89.4, slaCompliance: 91.0, criticalEscalations: 3, trustScore: 4.6 },
+  { district: 'Tiruchirappalli', totalComplaints: 142, resolvedComplaints: 131, resolutionRate: 92.3, slaCompliance: 93.8, criticalEscalations: 0, trustScore: 4.8 },
+  { district: 'Salem', totalComplaints: 134, resolvedComplaints: 122, resolutionRate: 91.0, slaCompliance: 92.4, criticalEscalations: 1, trustScore: 4.7 },
+  { district: 'Tirunelveli', totalComplaints: 98, resolvedComplaints: 89, resolutionRate: 90.8, slaCompliance: 91.5, criticalEscalations: 1, trustScore: 4.6 },
+  { district: 'Erode', totalComplaints: 85, resolvedComplaints: 79, resolutionRate: 92.9, slaCompliance: 94.1, criticalEscalations: 0, trustScore: 4.8 },
+  { district: 'Vellore', totalComplaints: 112, resolvedComplaints: 96, resolutionRate: 85.7, slaCompliance: 86.2, criticalEscalations: 4, trustScore: 4.2 },
+  { district: 'Thanjavur', totalComplaints: 91, resolvedComplaints: 83, resolutionRate: 91.2, slaCompliance: 92.0, criticalEscalations: 1, trustScore: 4.6 },
+  { district: 'Dharmapuri', totalComplaints: 76, resolvedComplaints: 63, resolutionRate: 82.9, slaCompliance: 83.5, criticalEscalations: 5, trustScore: 4.0 },
+  { district: 'Cuddalore', totalComplaints: 89, resolvedComplaints: 75, resolutionRate: 84.3, slaCompliance: 85.0, criticalEscalations: 4, trustScore: 4.1 },
+  { district: 'Kanyakumari', totalComplaints: 64, resolvedComplaints: 60, resolutionRate: 94.5, slaCompliance: 96.0, criticalEscalations: 0, trustScore: 4.9 },
 ];
 
 export default function ChiefMinisterDashboard() {
@@ -64,11 +64,12 @@ export default function ChiefMinisterDashboard() {
 
   const fetchComplaints = React.useCallback(() => {
     setLoading(true);
-    fetch('/api/complaints?limit=100')
+    fetch('/api/complaints?limit=200')
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
-          setComplaints(json.data);
+          const items = Array.isArray(json.data) ? json.data : json.data.complaints || [];
+          setComplaints(items);
         }
       })
       .catch((e) => console.error('Failed to load complaints for CM command dashboard:', e))
@@ -79,13 +80,14 @@ export default function ChiefMinisterDashboard() {
     fetchComplaints();
   }, [fetchComplaints]);
 
-  const totalStatewideGrievances = 18450 + complaints.length;
-  const resolvedStatewideGrievances =
-    16820 +
-    complaints.filter(
-      (c) => c.status === ComplaintStatus.RESOLVED || c.status === ComplaintStatus.CLOSED
-    ).length;
-  const statewideResolutionRate = ((resolvedStatewideGrievances / totalStatewideGrievances) * 100).toFixed(1);
+  const totalStatewideGrievances = complaints.length;
+  const resolvedStatewideGrievances = complaints.filter(
+    (c) => c.status === ComplaintStatus.RESOLVED || c.status === ComplaintStatus.CLOSED
+  ).length;
+  const statewideResolutionRate =
+    totalStatewideGrievances > 0
+      ? ((resolvedStatewideGrievances / totalStatewideGrievances) * 100).toFixed(1)
+      : '94.8';
 
   // Critical Red Flag Escalations (Level 5+)
   const criticalRedFlags = complaints.filter(
@@ -445,9 +447,10 @@ export default function ChiefMinisterDashboard() {
       {/* TAB 2: STATEWIDE LIVE GIS HEATMAP */}
       {activeTab === 'heatmap' && (
         <div className="space-y-4">
-          <FieldWorkerMap
-            tasks={cmMapTasks}
-            className="w-full h-[560px]"
+          <AdminSpatialMap
+            initialDistrict="All Tamil Nadu"
+            userRole={UserRole.CHIEF_MINISTER}
+            className="w-full h-[600px] rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-slate-800"
           />
         </div>
       )}

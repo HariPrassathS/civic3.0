@@ -221,11 +221,11 @@ export default function DepartmentHeadDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           title="Department Volume"
-          value={total > 0 ? total : 43}
-          subtitle={`${currentDept.name} (MTD)`}
+          value={total.toString()}
+          subtitle={`${currentDept.name} (Live)`}
           icon={<Building2 className="w-6 h-6" />}
           accentColor="blue"
-          change="+14% MoM"
+          change={`${complaints.filter(c => c.status === ComplaintStatus.IN_PROGRESS).length} In Progress`}
           trend="up"
         />
         <KpiCard
