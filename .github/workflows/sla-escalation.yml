@@ -1,0 +1,21 @@
+name: SLA Escalation Cron
+
+on:
+  schedule:
+    # Run every 15 minutes via GitHub Actions (Free)
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub UI
+
+jobs:
+  escalate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger SLA Escalation API
+        run: |
+          if [ -n "${{ secrets.APP_URL }}" ] && [ -n "${{ secrets.CRON_SECRET }}" ]; then
+            curl -X GET "${{ secrets.APP_URL }}/api/cron/escalate" \
+              -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+              --fail || echo "Escalation API responded with an error or skipped."
+          else
+            echo "Secrets APP_URL or CRON_SECRET not set yet. Skipping."
+          fi
