@@ -163,66 +163,27 @@ export async function getOrCreateCitizenProfile(params: {
     }
   }
 
-  // 4. Guest / Anonymous Device Profile resolution
-  const guestUid = `guest_${sessionToken}`;
-  const guestEmail = `${guestUid}@citizen.civicconnect.tn.gov.in`;
-
+  // 4. Guest / Anonymous Device Profile resolution - Reuses existing citizen profile to prevent DB bloat
   try {
-    const { data: existingGuestProfile } = await supabase
+    const { data: fallbackCitizen } = await supabase
       .from('profiles')
       .select('id, display_name, email, phone')
-      .eq('firebase_uid', guestUid)
+      .eq('role', UserRole.CITIZEN)
+      .limit(1)
       .maybeSingle();
 
-    if (existingGuestProfile) {
-      if (cleanName && cleanName.length > 2 && existingGuestProfile.display_name === 'Citizen') {
-        await supabase
-          .from('profiles')
-          .update({ display_name: cleanName, updated_at: new Date().toISOString() })
-          .eq('id', existingGuestProfile.id);
-      }
-
+    if (fallbackCitizen) {
       return {
-        citizenId: existingGuestProfile.id,
-        displayName: cleanName || existingGuestProfile.display_name || 'Citizen',
-        phone: existingGuestProfile.phone,
-        email: existingGuestProfile.email,
-        isGuest: true,
-        sessionToken,
-      };
-    }
-
-    // Provision new guest profile
-    const displayName = cleanName || 'Citizen';
-    const { data: newGuestProfile, error: insertErr } = await supabase
-      .from('profiles')
-      .insert({
-        firebase_uid: guestUid,
-        email: guestEmail,
-        display_name: displayName,
-        phone: normalizedPhone,
-        role: UserRole.CITIZEN,
-        is_active: true,
-      })
-      .select('id, display_name, email, phone')
-      .single();
-
-    if (!insertErr && newGuestProfile) {
-      safeLog('info', 'Provisioned new guest citizen profile', {
-        profileId: newGuestProfile.id,
-      });
-
-      return {
-        citizenId: newGuestProfile.id,
-        displayName: newGuestProfile.display_name,
-        phone: null,
-        email: newGuestProfile.email,
+        citizenId: fallbackCitizen.id,
+        displayName: cleanName || 'Citizen',
+        phone: normalizedPhone || null,
+        email: fallbackCitizen.email,
         isGuest: true,
         sessionToken,
       };
     }
   } catch (guestErr) {
-    safeLog('error', 'Error in guest profile provisioning', { error: String(guestErr) });
+    safeLog('error', 'Error in guest profile resolution', { error: String(guestErr) });
   }
 
   // Safe fallback to default demo citizen if database insertion fails

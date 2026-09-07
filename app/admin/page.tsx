@@ -215,6 +215,8 @@ export default function AdminConsolePage() {
     return matchesSearch && matchesRole;
   });
 
+  const registeredCitizensCount = users.filter((u) => u.role === UserRole.CITIZEN).length;
+
   return (
     <DashboardShell
       role={UserRole.ADMIN}
@@ -225,9 +227,9 @@ export default function AdminConsolePage() {
       {/* KPI Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
-          title="Registered Users"
-          value={users.length.toString()}
-          subtitle="Across all administrative roles"
+          title="Registered Citizens"
+          value={registeredCitizensCount.toString()}
+          subtitle="Verified citizen accounts"
           icon={<Users className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />}
           accentColor="indigo"
         />

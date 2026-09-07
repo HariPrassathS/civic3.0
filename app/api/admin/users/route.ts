@@ -145,10 +145,25 @@ export const MEMORY_USERS: Profile[] = [
     updated_at: new Date().toISOString(),
   },
   {
-    id: 'dev-user-citizen',
-    firebase_uid: 'fb-citizen-01',
-    email: 'citizen.karthik@gmail.com',
-    display_name: 'Karthik Subramanian',
+    id: 'usr-citizen-kavitha',
+    firebase_uid: 'fb-citizen-kavitha',
+    email: 'kavithaa1927@gmail.com',
+    display_name: 'Kavitha 1927',
+    phone: '9840019270',
+    avatar_url: null,
+    role: UserRole.CITIZEN,
+    department_id: null,
+    ward_id: 114,
+    district: 'Chennai',
+    is_active: true,
+    created_at: new Date(Date.now() - 2 * 86400 * 1000).toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 'usr-citizen-priya',
+    firebase_uid: 'demo_citizen_tn',
+    email: 'citizen.test@civicconnect.tn.gov.in',
+    display_name: 'Priya Sundaram',
     phone: '9840012345',
     avatar_url: null,
     role: UserRole.CITIZEN,
@@ -174,7 +189,10 @@ export async function GET() {
       const supabase = createAdminClient();
       const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
       if (!error && data && data.length > 0) {
-        users = data as unknown as Profile[];
+        // Exclude transient guest profiles starting with guest_
+        users = (data as unknown as Profile[]).filter(
+          (u) => !u.firebase_uid?.startsWith('guest_') && !u.email?.startsWith('guest_')
+        );
       }
     } catch {
       // Memory fallback
