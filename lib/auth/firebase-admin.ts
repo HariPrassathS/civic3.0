@@ -1,48 +1,10 @@
 // =============================================================================
-// CivicConnect TN — Firebase Admin SDK (Server-Side ID Token Verification)
+// CivicConnect TN — Google / Firebase Server-Side ID Token Verification
 // =============================================================================
-// This module runs ONLY on the server to verify Firebase ID tokens sent from
-// the client during Google Sign-In.
+// Uses jose + Google Identity Toolkit REST API for 100% Serverless & Edge
+// compatibility, eliminating heavy C++ / gRPC dependencies in serverless functions.
 
-import { initializeApp, getApps, cert, type App } from 'firebase-admin/app';
-import { getAuth, type DecodedIdToken } from 'firebase-admin/auth';
-
-let adminApp: App | null = null;
-
-function getFirebaseAdminApp(): App | null {
-  if (adminApp) return adminApp;
-  if (getApps().length > 0) {
-    adminApp = getApps()[0];
-    return adminApp;
-  }
-
-  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-  let privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-
-  if (!clientEmail || !privateKey || !projectId) {
-    return null;
-  }
-
-  // Handle escaped newlines in private key if present
-  if (privateKey.includes('\\n')) {
-    privateKey = privateKey.replace(/\\n/g, '\n');
-  }
-
-  try {
-    adminApp = initializeApp({
-      credential: cert({
-        projectId,
-        clientEmail,
-        privateKey,
-      }),
-    });
-    return adminApp;
-  } catch (error) {
-    console.error('[Firebase Admin] Initialization error:', error);
-    return null;
-  }
-}
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 export interface VerifiedFirebaseUser {
   uid: string;
@@ -51,30 +13,45 @@ export interface VerifiedFirebaseUser {
   picture?: string;
 }
 
+const GOOGLE_JWKS = createRemoteJWKSet(
+  new URL(
+    'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'
+  )
+);
+
 /**
- * Verify a Firebase ID token.
- * In development or testing, if Admin credentials are not set, supports dev tokens.
+ * Verify a Google / Firebase ID token on the server.
  */
 export async function verifyFirebaseIdToken(token: string): Promise<VerifiedFirebaseUser> {
-  const app = getFirebaseAdminApp();
+  const projectId =
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ||
+    process.env.FIREBASE_PROJECT_ID ||
+    'civic-connect-6e7c9';
 
-  // 1. Try Firebase Admin SDK verification if service account credentials are provided
-  if (app) {
-    try {
-      const auth = getAuth(app);
-      const decodedToken: DecodedIdToken = await auth.verifyIdToken(token);
+  // 1. Verify cryptographic signature via Google's official JWKS public keys
+  try {
+    const { payload } = await jwtVerify(token, GOOGLE_JWKS, {
+      issuer: `https://securetoken.google.com/${projectId}`,
+      audience: projectId,
+    });
+
+    const uid = (payload.user_id as string) || (payload.sub as string);
+    if (uid) {
       return {
-        uid: decodedToken.uid,
-        email: decodedToken.email || '',
-        name: decodedToken.name || decodedToken.email?.split('@')[0] || 'Citizen',
-        picture: decodedToken.picture,
+        uid,
+        email: (payload.email as string) || '',
+        name:
+          (payload.name as string) ||
+          (payload.email ? (payload.email as string).split('@')[0] : 'Citizen'),
+        picture: (payload.picture as string) || undefined,
       };
-    } catch (adminErr) {
-      console.warn('[Firebase Admin SDK verification failed, attempting Google Identity REST API]:', adminErr);
     }
+  } catch (jwksErr) {
+    // If issuer verification fails or project mismatch, try Google Identity REST API
+    console.warn('[JWKS Verification warning, falling back to Google Identity REST API]:', jwksErr);
   }
 
-  // 2. Direct Verification via Google Identity Toolkit REST API (Works with Web API Key)
+  // 2. Direct Verification via Google Identity Toolkit REST API
   const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   if (apiKey && token && !token.startsWith('dev_') && !token.startsWith('mock_')) {
     try {
@@ -94,7 +71,7 @@ export async function verifyFirebaseIdToken(token: string): Promise<VerifiedFire
           return {
             uid: user.localId,
             email: user.email || '',
-            name: user.displayName || user.email?.split('@')[0] || 'Citizen',
+            name: user.displayName || (user.email ? user.email.split('@')[0] : 'Citizen'),
             picture: user.photoUrl,
           };
         }
@@ -123,16 +100,19 @@ export async function verifyFirebaseIdToken(token: string): Promise<VerifiedFire
       while (base64.length % 4) {
         base64 += '=';
       }
-      const jsonStr = typeof Buffer !== 'undefined'
-        ? Buffer.from(base64, 'base64').toString('utf-8')
-        : (typeof atob === 'function' ? atob(base64) : '');
+      const jsonStr =
+        typeof Buffer !== 'undefined'
+          ? Buffer.from(base64, 'base64').toString('utf-8')
+          : typeof atob === 'function'
+            ? atob(base64)
+            : '';
       const payload = JSON.parse(jsonStr);
       const uid = payload.user_id || payload.sub || payload.uid;
       if (uid) {
         return {
           uid: uid,
           email: payload.email || `${uid}@citizen.civicconnect.tn.gov.in`,
-          name: payload.name || payload.display_name || payload.email?.split('@')[0] || 'Citizen',
+          name: payload.name || payload.display_name || (payload.email ? payload.email.split('@')[0] : 'Citizen'),
           picture: payload.picture || payload.avatar_url,
         };
       }
@@ -141,7 +121,5 @@ export async function verifyFirebaseIdToken(token: string): Promise<VerifiedFire
     console.warn('[JWT Payload decode error]:', parseErr);
   }
 
-  throw new Error(
-    'Unable to verify authentication token. Please ensure you are logged in.'
-  );
+  throw new Error('Unable to verify authentication token. Please ensure you are logged in.');
 }
