@@ -15,10 +15,17 @@ import { createSessionToken, getSessionCookieOptions } from '@/lib/auth/session'
 import { UserRole } from '@/types/enums';
 import type { AuthUser } from '@/types/auth';
 import type { Profile } from '@/types/database';
+import { randomUUID } from 'crypto';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    let body: any = {};
+    try {
+      body = await request.json();
+    } catch {
+      body = {};
+    }
+
     const { firebase_token } = body;
 
     if (!firebase_token) {
@@ -38,12 +45,14 @@ export async function POST(request: Request) {
       const supabaseAdmin = createAdminClient();
 
       // Check for existing profile by firebase_uid or email
-      const { data: existingData, error: fetchError } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .or(`firebase_uid.eq.${firebaseUser.uid},email.eq.${firebaseUser.email}`)
-        .maybeSingle();
+      let query = supabaseAdmin.from('profiles').select('*');
+      if (firebaseUser.email) {
+        query = query.or(`firebase_uid.eq.${firebaseUser.uid},email.eq.${firebaseUser.email}`);
+      } else {
+        query = query.eq('firebase_uid', firebaseUser.uid);
+      }
 
+      const { data: existingData, error: fetchError } = await query.maybeSingle();
       const existingProfile = existingData as unknown as Profile | null;
 
       if (fetchError && fetchError.code !== 'PGRST116') {
@@ -51,7 +60,7 @@ export async function POST(request: Request) {
       }
 
       if (existingProfile) {
-        // If profile was created previously with different firebase_uid or needs info update
+        // If profile exists, update info if needed
         if (
           existingProfile.firebase_uid !== firebaseUser.uid ||
           (firebaseUser.picture && !existingProfile.avatar_url)
@@ -78,10 +87,11 @@ export async function POST(request: Request) {
         };
       } else {
         // Create new profile (default role: Citizen)
+        const email = firebaseUser.email || `${firebaseUser.uid}@citizen.civicconnect.tn.gov.in`;
         const newProfileData = {
           firebase_uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          display_name: firebaseUser.name,
+          email: email,
+          display_name: firebaseUser.name || 'Citizen',
           avatar_url: firebaseUser.picture || null,
           role: UserRole.CITIZEN,
           ward_id: 114,
@@ -99,11 +109,10 @@ export async function POST(request: Request) {
 
         if (insertError || !createdProfile) {
           console.warn('[Supabase Profile Insert Warning]:', insertError?.message);
-          // Fallback user object if DB insert failed
           userProfile = {
-            id: firebaseUser.uid,
-            email: firebaseUser.email,
-            display_name: firebaseUser.name,
+            id: randomUUID(),
+            email: email,
+            display_name: firebaseUser.name || 'Citizen',
             role: UserRole.CITIZEN,
             department_id: null,
             ward_id: 114,
@@ -125,15 +134,14 @@ export async function POST(request: Request) {
       }
     } catch (supabaseError) {
       console.warn('[Supabase Admin Client unavailable, fallback to token]:', supabaseError);
-      // Fallback for dev mode when DB keys are pending
       userProfile = {
-        id: firebaseUser.uid,
-        email: firebaseUser.email,
-        display_name: firebaseUser.name,
+        id: randomUUID(),
+        email: firebaseUser.email || `${firebaseUser.uid}@citizen.civicconnect.tn.gov.in`,
+        display_name: firebaseUser.name || 'Citizen',
         role: UserRole.CITIZEN,
         department_id: null,
-        ward_id: null,
-        district: null,
+        ward_id: 114,
+        district: 'Chennai',
         avatar_url: firebaseUser.picture || null,
       };
     }
@@ -167,3 +175,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: errMessage }, { status: 401 });
   }
 }
+

@@ -120,10 +120,11 @@ export async function verifyFirebaseIdToken(token: string): Promise<VerifiedFire
     const parts = token.split('.');
     if (parts.length === 3) {
       const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf-8'));
-      if (payload.user_id || payload.sub) {
+      const uid = payload.user_id || payload.sub;
+      if (uid) {
         return {
-          uid: payload.user_id || payload.sub,
-          email: payload.email || 'citizen.demo@civicconnect.tn.gov.in',
+          uid: uid,
+          email: payload.email || `${uid}@citizen.civicconnect.tn.gov.in`,
           name: payload.name || payload.email?.split('@')[0] || 'Citizen',
           picture: payload.picture,
         };
