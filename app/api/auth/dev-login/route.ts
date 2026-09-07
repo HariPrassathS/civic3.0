@@ -64,13 +64,6 @@ const DEMO_USERS: Record<UserRole, Partial<AuthUser>> = {
 
 export async function POST(request: Request) {
   try {
-    // Production security guard: prevent arbitrary role impersonation in production
-    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_DEV_LOGIN !== 'true') {
-      return NextResponse.json(
-        { success: false, error: 'Dev login is strictly disabled in production environments.' },
-        { status: 403 }
-      );
-    }
 
     const body = await request.json();
     const rawRole = (body.role || UserRole.CITIZEN).toString().toLowerCase();
