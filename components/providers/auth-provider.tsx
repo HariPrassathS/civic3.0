@@ -69,7 +69,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await fetch('/api/auth/me');
       if (res.ok) {
-        const data = await res.json();
+        let data: any = {};
+        try {
+          const text = await res.text();
+          data = text ? JSON.parse(text) : {};
+        } catch {
+          data = {};
+        }
         if (data.success && data.data?.user) {
           setUser(data.data.user);
         } else {
@@ -96,9 +102,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ firebase_token: idToken }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        const text = await res.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { success: false, error: `Authentication server returned status ${res.status}.` };
+      }
+
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Login failed');
+        throw new Error(data.error || `Login failed (Status ${res.status})`);
       }
 
       const loggedInUser: AuthUser = data.data.user;
@@ -128,9 +141,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ role: selectedRole, secretCode }),
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        const text = await res.text();
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { success: false, error: `Authentication server returned status ${res.status}.` };
+      }
+
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Dev login failed');
+        throw new Error(data.error || `Login failed (Status ${res.status})`);
       }
 
       const loggedInUser: AuthUser = data.data.user;
