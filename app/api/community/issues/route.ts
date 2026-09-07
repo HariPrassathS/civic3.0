@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     const categoryId = searchParams.get('category_id');
     const status = searchParams.get('status');
 
-    let rawList = MEMORY_COMPLAINTS.filter((c) => c.is_public);
+    let rawList: any[] = [];
 
     // Try Supabase database query
     try {
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
       }
 
       const { data, error } = await query;
-      if (!error && data && data.length > 0) {
+      if (!error && data) {
         // Generate signed URLs for media in private bucket 'complaint-evidence'
         const signedPromises: Promise<void>[] = [];
         for (const item of (data as any[])) {
@@ -82,9 +82,11 @@ export async function GET(request: NextRequest) {
           upvotes_count: item.upvotes?.length || 0,
           comments_count: item.comments?.length || 0,
         }));
+      } else if (error) {
+        rawList = MEMORY_COMPLAINTS.filter((c) => c.is_public);
       }
     } catch {
-      // Memory fallback
+      rawList = MEMORY_COMPLAINTS.filter((c) => c.is_public);
     }
 
     // Filter memory list

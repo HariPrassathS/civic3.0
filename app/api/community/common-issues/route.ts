@@ -7,17 +7,45 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MEMORY_COMPLAINTS } from '@/lib/complaints/service';
 import { buildCommonIssueClusters } from '@/lib/community/common-issues';
 
+import { createAdminClient } from '@/lib/supabase/admin';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;
     const district = searchParams.get('district');
 
-    let publicComplaints = MEMORY_COMPLAINTS.filter((c) => c.is_public);
+    let publicComplaints: any[] = [];
 
-    if (district && district !== 'all' && district !== 'All Districts') {
-      publicComplaints = publicComplaints.filter(
-        (c) => c.district?.toLowerCase() === district.toLowerCase()
-      );
+    try {
+      const supabase = createAdminClient();
+      let query = supabase
+        .from('complaints')
+        .select(`
+          *,
+          category:categories(name, code),
+          department:departments(name, code),
+          media:complaint_media(id, url, media_type, storage_path, phase, ai_analysis, created_at),
+          upvotes(user_id),
+          comments(id)
+        `)
+        .eq('is_public', true);
+
+      if (district && district !== 'all' && district !== 'All Districts') {
+        query = query.ilike('district', district);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        publicComplaints = data.map((item: any) => ({
+          ...item,
+          upvotes_count: item.upvotes?.length || 0,
+          comments_count: item.comments?.length || 0,
+        }));
+      } else if (error) {
+        publicComplaints = MEMORY_COMPLAINTS.filter((c) => c.is_public);
+      }
+    } catch {
+      publicComplaints = MEMORY_COMPLAINTS.filter((c) => c.is_public);
     }
 
     const { clusters } = buildCommonIssueClusters(publicComplaints);
