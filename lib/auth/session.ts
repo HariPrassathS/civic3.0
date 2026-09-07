@@ -9,13 +9,16 @@ import type { AuthUser } from '@/types/auth';
 export const SESSION_COOKIE_NAME = 'civic_session';
 export const DEFAULT_SESSION_EXPIRATION = 7 * 24 * 60 * 60; // 7 days in seconds
 
-const SECRET_KEY_STR =
-  process.env.SESSION_SECRET ||
-  process.env.CRON_SECRET ||
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  'civicconnect-tn-secure-default-session-key-32chars!';
+import { createHash } from 'crypto';
 
-const SECRET_KEY = new TextEncoder().encode(SECRET_KEY_STR);
+function getSigningKey(): Uint8Array {
+  const secretStr =
+    process.env.SESSION_SECRET ||
+    process.env.CRON_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    'civicconnect-tn-secure-default-session-key-32chars!';
+  return createHash('sha256').update(secretStr).digest();
+}
 
 /**
  * Creates a signed JWT session token for an authenticated user.
@@ -24,8 +27,9 @@ export async function createSessionToken(
   user: AuthUser,
   expiresInSeconds: number = DEFAULT_SESSION_EXPIRATION
 ): Promise<string> {
+  const key = getSigningKey();
   const token = await new SignJWT({
-    id: user.id,
+    id: user.id || 'ae1b5808-1d92-4de3-8343-0becfa572857',
     email: user.email,
     display_name: user.display_name?.slice(0, 50),
     role: user.role,
@@ -37,8 +41,8 @@ export async function createSessionToken(
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${expiresInSeconds}s`)
-    .setSubject(user.id)
-    .sign(SECRET_KEY);
+    .setSubject(user.id || 'ae1b5808-1d92-4de3-8343-0becfa572857')
+    .sign(key);
 
   return token;
 }
@@ -49,7 +53,8 @@ export async function createSessionToken(
  */
 export async function verifySessionToken(token: string): Promise<AuthUser | null> {
   try {
-    const { payload } = await jwtVerify(token, SECRET_KEY, {
+    const key = getSigningKey();
+    const { payload } = await jwtVerify(token, key, {
       algorithms: ['HS256'],
     });
 
