@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         for (const item of (data as any[])) {
           if (Array.isArray(item.media)) {
             for (const m of item.media) {
-              if (m.storage_path) {
+              if (m.storage_path && (!m.url || !m.url.startsWith('http') || m.url.includes('supabase.co/storage/v1/object/sign/'))) {
                 signedPromises.push(
                   supabase.storage
                     .from('complaint-evidence')
