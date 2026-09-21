@@ -25,6 +25,8 @@ export async function GET(request: NextRequest) {
     const departmentParam = searchParams.get('department_id');
     const priorityParam = searchParams.get('priority');
     const statusParam = searchParams.get('status');
+    const includeHistoricalParam = searchParams.get('include_historical');
+    const dataSourceParam = searchParams.get('data_source') as 'live' | 'all' | null;
 
     const filters: AnalyticsFilterState = {
       epsilonKm: epsilonParam ? parseFloat(epsilonParam) : 0.5,
@@ -36,6 +38,8 @@ export async function GET(request: NextRequest) {
       departmentId: departmentParam || undefined,
       priority: priorityParam || undefined,
       status: statusParam || undefined,
+      includeHistorical: includeHistoricalParam === 'true',
+      dataSource: dataSourceParam || (includeHistoricalParam === 'true' ? 'all' : 'live'),
     };
 
     // Attempt to pull live database complaints from Supabase

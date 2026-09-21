@@ -161,17 +161,32 @@ export function executeUnifiedAnalyticsPipeline(
   const minPts = filters.minPts ?? 3;
 
   // 1. DATA EXTRACT & UNIFICATION
-  const rawList: any[] = [...HISTORICAL_MINING_DATASET];
+  // Default to live database complaints only (Ground Truth mode).
+  // If includeHistorical is true or dataSource is 'all', merge historical urban benchmark dataset (Simulation mode).
+  const isHistoricalIncluded = filters.includeHistorical === true || filters.dataSource === 'all';
 
+  const rawList: any[] = [];
+
+  // Prioritize live complaints from Supabase
+  for (const ec of externalComplaints) {
+    if (!rawList.some((c) => c.tracking_id === ec.tracking_id)) {
+      rawList.push(ec);
+    }
+  }
+
+  // Add memory-state complaints
   for (const mc of MEMORY_COMPLAINTS) {
     if (!rawList.some((c) => c.tracking_id === mc.tracking_id)) {
       rawList.push(mc);
     }
   }
 
-  for (const ec of externalComplaints) {
-    if (!rawList.some((c) => c.tracking_id === ec.tracking_id)) {
-      rawList.push(ec);
+  // Include Historical Seed Dataset only when requested or as graceful fallback if zero live complaints exist
+  if (isHistoricalIncluded || rawList.length === 0) {
+    for (const hc of HISTORICAL_MINING_DATASET) {
+      if (!rawList.some((c) => c.tracking_id === hc.tracking_id)) {
+        rawList.push(hc);
+      }
     }
   }
 

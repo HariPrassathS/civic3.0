@@ -5,7 +5,7 @@
 // =============================================================================
 
 import React from 'react';
-import { Filter, Calendar, Building2, AlertTriangle, CheckCircle2, MapPin, RefreshCw, X } from 'lucide-react';
+import { Filter, Calendar, Building2, AlertTriangle, CheckCircle2, MapPin, RefreshCw, X, Database, Sparkles } from 'lucide-react';
 import { AnalyticsFilterState } from '@/lib/data-mining/types';
 
 interface AnalyticsFiltersBarProps {
@@ -122,16 +122,47 @@ export function AnalyticsFiltersBar({
           </div>
         </div>
 
-        {hasActiveFilters && (
-          <button
-            type="button"
-            onClick={onResetFilters}
-            className="flex items-center gap-1 text-[11px] font-semibold text-rose-400 hover:text-rose-300 px-2.5 py-1 rounded-lg bg-rose-950/40 border border-rose-800/40 transition-colors cursor-pointer"
-          >
-            <X className="w-3 h-3" />
-            <span>Reset Filters</span>
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Dataset Source Toggle */}
+          <div className="flex items-center p-0.5 rounded-xl bg-slate-950 border border-slate-800 text-[11px] font-semibold shadow-inner">
+            <button
+              type="button"
+              onClick={() => onChangeFilters({ ...filters, includeHistorical: false, dataSource: 'live' })}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                !filters.includeHistorical && filters.dataSource !== 'all'
+                  ? 'bg-emerald-600 text-white shadow-sm font-bold'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+              }`}
+            >
+              <Database className="w-3 h-3 text-emerald-300" />
+              <span>Live DB Only (19)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onChangeFilters({ ...filters, includeHistorical: true, dataSource: 'all' })}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                filters.includeHistorical || filters.dataSource === 'all'
+                  ? 'bg-indigo-600 text-white shadow-sm font-bold'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/50'
+              }`}
+            >
+              <Sparkles className="w-3 h-3 text-indigo-300" />
+              <span>+ Historical AI Dataset (57)</span>
+            </button>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={onResetFilters}
+              className="flex items-center gap-1 text-[11px] font-semibold text-rose-400 hover:text-rose-300 px-2.5 py-1 rounded-lg bg-rose-950/40 border border-rose-800/40 transition-colors cursor-pointer"
+            >
+              <X className="w-3 h-3" />
+              <span>Reset Filters</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter Dropdown Controls */}

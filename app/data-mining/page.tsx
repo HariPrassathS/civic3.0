@@ -48,7 +48,7 @@ import {
 } from '@/lib/data-mining/types';
 
 export default function DataMiningPage() {
-  // Global Shared Filter State
+  // Global Shared Filter State (Defaults to Ground Truth Live DB mode)
   const [filters, setFilters] = useState<AnalyticsFilterState>({
     timeRange: '90d',
     departmentId: undefined,
@@ -59,6 +59,8 @@ export default function DataMiningPage() {
     ward: undefined,
     epsilonKm: 0.5,
     minPts: 3,
+    includeHistorical: false,
+    dataSource: 'live',
   });
 
   // UI state
@@ -85,6 +87,8 @@ export default function DataMiningPage() {
         if (filters.categoryId && filters.categoryId !== 'all') url.searchParams.set('category_id', filters.categoryId);
         if (filters.priority && filters.priority !== 'all') url.searchParams.set('priority', filters.priority);
         if (filters.status && filters.status !== 'all') url.searchParams.set('status', filters.status);
+        if (filters.includeHistorical) url.searchParams.set('include_historical', 'true');
+        if (filters.dataSource) url.searchParams.set('data_source', filters.dataSource);
 
         const res = await fetch(url.toString());
         if (res.ok) {
@@ -134,6 +138,8 @@ export default function DataMiningPage() {
       ward: undefined,
       epsilonKm: 0.5,
       minPts: 3,
+      includeHistorical: false,
+      dataSource: 'live',
     });
   };
 

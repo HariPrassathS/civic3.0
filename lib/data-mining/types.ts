@@ -218,6 +218,8 @@ export interface AnalyticsFilterState {
   ward?: number;
   epsilonKm?: number;
   minPts?: number;
+  includeHistorical?: boolean;
+  dataSource?: 'live' | 'all';
 }
 
 export interface UnifiedAnalyticsResponse {
