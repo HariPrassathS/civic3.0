@@ -57,7 +57,11 @@ export async function GET(request: NextRequest) {
         for (const item of (data as any[])) {
           if (Array.isArray(item.media)) {
             for (const m of item.media) {
-              if (m.storage_path && (!m.url || !m.url.startsWith('http') || m.url.includes('supabase.co/storage/v1/object/sign/'))) {
+              if (m.storage_path) {
+                // If url is external (e.g. Unsplash), preserve it; otherwise generate signed URL from private bucket
+                if (m.url && !m.url.includes('supabase.co')) {
+                  continue;
+                }
                 signedPromises.push(
                   supabase.storage
                     .from('complaint-evidence')

@@ -182,7 +182,10 @@ export async function GET(request: Request) {
 
           if (comp.media && Array.isArray(comp.media)) {
             for (const m of comp.media) {
-              if (m.storage_path && (!m.url || !m.url.startsWith('http') || m.url.includes('supabase.co/storage/v1/object/sign/'))) {
+              if (m.storage_path) {
+                if (m.url && !m.url.includes('supabase.co')) {
+                  continue;
+                }
                 signedUrlPromises.push(
                   supabase.storage
                     .from('complaint-evidence')
