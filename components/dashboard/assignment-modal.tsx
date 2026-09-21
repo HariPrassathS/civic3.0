@@ -26,7 +26,9 @@ const DEFAULT_WORKERS: FieldWorkerOption[] = [
 ];
 
 interface AssignmentModalProps {
-  complaint: Complaint;
+  complaint: Complaint & {
+    citizen?: { id: string; display_name: string; phone?: string | null; role?: string } | null;
+  };
   isOpen: boolean;
   onClose: () => void;
   onAssign: (complaintId: string, workerId: string, notes: string) => Promise<void>;
@@ -94,14 +96,20 @@ export function AssignmentModal({
           )}
 
           {/* Target Complaint Info */}
-          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-1">
+          <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700/60 space-y-1.5">
             <p className="text-xs font-semibold uppercase text-slate-400">Grievance Subject</p>
             <p className="font-semibold text-slate-900 dark:text-white text-sm">
               {complaint.title}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Location: {complaint.address || `Ward ${complaint.ward}, Chennai`}
-            </p>
+            <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-700/40">
+              <span className="flex items-center gap-1 text-slate-700 dark:text-slate-300">
+                <span className="text-slate-400 font-medium">Reported by:</span>
+                <strong className="text-slate-900 dark:text-white">{complaint.citizen?.display_name || 'Citizen'}</strong>
+                {complaint.citizen?.phone && <span className="text-slate-400">({complaint.citizen.phone})</span>}
+              </span>
+              <span className="text-slate-300 dark:text-slate-600">•</span>
+              <span>{complaint.address || `Ward ${complaint.ward}, Chennai`}</span>
+            </div>
           </div>
 
           {/* Field Worker Selector */}

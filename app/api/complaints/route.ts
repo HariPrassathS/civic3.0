@@ -15,6 +15,7 @@ interface ComplaintItem extends Complaint {
   department?: { name: string; code: string };
   media?: ComplaintMedia[];
   updates?: ComplaintUpdate[];
+  citizen?: { id: string; display_name: string; phone?: string | null; role?: string } | null;
   latitude?: number;
   longitude?: number;
   upvotes_count?: number;
@@ -137,7 +138,8 @@ export async function GET(request: Request) {
           *,
           category:categories(name, code),
           department:departments(name, code),
-          media:complaint_media(*)
+          media:complaint_media(*),
+          citizen:profiles!complaints_citizen_id_fkey(id, display_name, phone, role)
         `)
         .order('created_at', { ascending: false });
 
@@ -213,19 +215,29 @@ export async function GET(request: Request) {
 
     // In-memory fallback filtering with identical security scoping
     if (complaints.length === 0) {
-      complaints = (MEMORY_COMPLAINTS as unknown as ComplaintItem[]).filter((c) => {
-        if (effectiveCitizenId && c.citizen_id !== effectiveCitizenId) return false;
-        if (enforcePublicOnly && !c.is_public) return false;
-        if (user?.role === UserRole.FIELD_WORKER && assignedComplaintIds.length > 0) {
-          if (!assignedComplaintIds.includes(c.id) && scopeWard && c.ward !== scopeWard) return false;
-        } else {
-          if (scopeWard && c.ward !== scopeWard) return false;
-        }
-        if (scopeDept && c.department_id !== scopeDept) return false;
-        if (scopeDistrict && c.district?.toLowerCase() !== scopeDistrict.toLowerCase()) return false;
-        if (status && status !== 'all' && c.status !== status) return false;
-        return true;
-      });
+      complaints = (MEMORY_COMPLAINTS as unknown as ComplaintItem[])
+        .map((c) => ({
+          ...c,
+          citizen: c.citizen || {
+            id: c.citizen_id || 'mock-citizen-1',
+            display_name: c.citizen_id === 'b3e93510-b1cf-4b7f-95ec-ce6cac4fc613' ? 'Kavitha 1927' : 'S Hari Prassath',
+            phone: '+91 98401 23456',
+            role: 'citizen',
+          },
+        }))
+        .filter((c) => {
+          if (effectiveCitizenId && c.citizen_id !== effectiveCitizenId) return false;
+          if (enforcePublicOnly && !c.is_public) return false;
+          if (user?.role === UserRole.FIELD_WORKER && assignedComplaintIds.length > 0) {
+            if (!assignedComplaintIds.includes(c.id) && scopeWard && c.ward !== scopeWard) return false;
+          } else {
+            if (scopeWard && c.ward !== scopeWard) return false;
+          }
+          if (scopeDept && c.department_id !== scopeDept) return false;
+          if (scopeDistrict && c.district?.toLowerCase() !== scopeDistrict.toLowerCase()) return false;
+          if (status && status !== 'all' && c.status !== status) return false;
+          return true;
+        });
     }
 
     if (search && complaints.length > 0) {

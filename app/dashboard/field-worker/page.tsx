@@ -23,6 +23,8 @@ import {
   Navigation,
   RefreshCw,
   Compass,
+  User,
+  Phone,
 } from 'lucide-react';
 import type { Complaint, ComplaintMedia, ComplaintUpdate } from '@/types/database';
 
@@ -31,6 +33,7 @@ interface TaskItem extends Complaint {
   department?: { name: string; code: string };
   media?: ComplaintMedia[];
   updates?: ComplaintUpdate[];
+  citizen?: { id: string; display_name: string; phone?: string | null; role?: string } | null;
 }
 
 export default function FieldWorkerDashboard() {
@@ -424,7 +427,7 @@ export default function FieldWorkerDashboard() {
                   </p>
 
                   {/* AI Triage & Evidence Summary */}
-                  <div className="mb-3 p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/50 flex items-center justify-between gap-2 text-[11px]">
+                  <div className="mb-2.5 p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/50 flex items-center justify-between gap-2 text-[11px]">
                     <span className="text-purple-800 dark:text-purple-300 font-medium flex items-center gap-1">
                       <span className="text-xs">🤖</span>
                       <span>AI Triage: <strong>{task.category?.name || 'Standard Civic Work Order'}</strong></span>
@@ -433,6 +436,30 @@ export default function FieldWorkerDashboard() {
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-200 dark:bg-purple-900 text-purple-900 dark:text-purple-200 shrink-0">
                         📷 {task.media.length} Evidence Photo{task.media.length > 1 ? 's' : ''}
                       </span>
+                    )}
+                  </div>
+
+                  {/* Citizen / Complainant Info */}
+                  <div className="mb-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-6 h-6 rounded-lg bg-indigo-100 dark:bg-indigo-950/70 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="truncate">
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Reported by: </span>
+                        <span className="font-bold text-slate-900 dark:text-white">
+                          {task.citizen?.display_name || 'Citizen'}
+                        </span>
+                      </div>
+                    </div>
+                    {task.citizen?.phone && (
+                      <a
+                        href={`tel:${task.citizen.phone}`}
+                        className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 shrink-0 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-md"
+                      >
+                        <Phone className="w-3 h-3" />
+                        <span>{task.citizen.phone}</span>
+                      </a>
                     )}
                   </div>
 

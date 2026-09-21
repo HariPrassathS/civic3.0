@@ -29,6 +29,7 @@ interface ResolutionUploadModalProps {
     media?: ComplaintMedia[];
     category?: { name: string; code: string };
     department?: { name: string; code: string };
+    citizen?: { id: string; display_name: string; phone?: string | null; role?: string } | null;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -237,6 +238,10 @@ export function ResolutionUploadModal({
               <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">
                 {complaint.description}
               </p>
+              <div className="pt-1 flex items-center gap-2 text-xs text-slate-500">
+                <span>Reported by: <strong className="text-slate-900 dark:text-white">{complaint.citizen?.display_name || 'Citizen'}</strong></span>
+                {complaint.citizen?.phone && <span className="text-slate-400">({complaint.citizen.phone})</span>}
+              </div>
             </div>
 
             {beforeMedia?.url && (

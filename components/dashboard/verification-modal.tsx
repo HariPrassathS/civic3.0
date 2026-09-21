@@ -20,6 +20,7 @@ import {
   Eye,
   FileText,
   AlertCircle,
+  User,
 } from 'lucide-react';
 import type { Complaint, ComplaintMedia } from '@/types/database';
 
@@ -28,6 +29,7 @@ interface VerificationModalProps {
     category?: { name: string; code: string };
     department?: { name: string; code: string };
     media?: ComplaintMedia[];
+    citizen?: { id: string; display_name: string; phone?: string | null; role?: string } | null;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -213,6 +215,11 @@ export function VerificationModal({
               {complaint.description}
             </p>
             <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200/60 dark:border-slate-700/40">
+              <span className="flex items-center gap-1 font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-700/60 px-2 py-0.5 rounded-md">
+                <User className="w-3.5 h-3.5 text-indigo-500" />
+                <span>Reported by: <strong>{complaint.citizen?.display_name || 'Citizen'}</strong></span>
+                {complaint.citizen?.phone && <span className="text-slate-400">({complaint.citizen.phone})</span>}
+              </span>
               <span className="flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5 text-rose-500" />
                 {complaint.address || `Ward ${complaint.ward}, Chennai`}
