@@ -9,6 +9,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { executeUnifiedAnalyticsPipeline } from '@/lib/data-mining/pipeline';
 import { AnalyticsFilterState } from '@/lib/data-mining/types';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = request.nextUrl;

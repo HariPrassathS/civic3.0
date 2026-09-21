@@ -57,6 +57,98 @@ const PRIORITY_META: Record<string, { label: string; color: string }> = {
   low: { label: 'Low', color: '#94a3b8' },
 };
 
+function parsePostGisLocation(loc: unknown): { latitude: number; longitude: number } | null {
+  if (!loc) return null;
+  if (typeof loc === 'object' && loc !== null && 'latitude' in (loc as any) && 'longitude' in (loc as any)) {
+    const lat = Number((loc as any).latitude);
+    const lng = Number((loc as any).longitude);
+    if (!isNaN(lat) && !isNaN(lng)) return { latitude: lat, longitude: lng };
+  }
+  if (typeof loc === 'string') {
+    // Hex WKB format from PostGIS
+    if (/^[0-9a-fA-F]+$/.test(loc) && (loc.length === 50 || loc.length === 42)) {
+      try {
+        const buffer = Buffer.from(loc, 'hex');
+        if (buffer.length === 25) {
+          const lon = buffer.readDoubleLE(9);
+          const lat = buffer.readDoubleLE(17);
+          return { latitude: Number(lat.toFixed(6)), longitude: Number(lon.toFixed(6)) };
+        }
+        if (buffer.length === 21) {
+          const lon = buffer.readDoubleLE(5);
+          const lat = buffer.readDoubleLE(13);
+          return { latitude: Number(lat.toFixed(6)), longitude: Number(lon.toFixed(6)) };
+        }
+      } catch {
+        return null;
+      }
+    }
+    // "POINT(lng lat)"
+    const match = loc.match(/POINT\s*\(\s*([-\d.]+)\s+([-\d.]+)\s*\)/i);
+    if (match) {
+      const lng = parseFloat(match[1]);
+      const lat = parseFloat(match[2]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return { latitude: Number(lat.toFixed(6)), longitude: Number(lng.toFixed(6)) };
+      }
+    }
+  }
+  return null;
+}
+
+const DISTRICT_CENTROIDS: Record<string, { lat: number; lng: number }> = {
+  chennai: { lat: 13.0827, lng: 80.2707 },
+  coimbatore: { lat: 11.0168, lng: 76.9558 },
+  madurai: { lat: 9.9252, lng: 78.1198 },
+  tiruchirappalli: { lat: 10.7905, lng: 78.7047 },
+  trichy: { lat: 10.7905, lng: 78.7047 },
+  salem: { lat: 11.6643, lng: 78.1460 },
+  tirunelveli: { lat: 8.7139, lng: 77.7567 },
+  tiruppur: { lat: 11.1085, lng: 77.3411 },
+  erode: { lat: 11.3410, lng: 77.7172 },
+  vellore: { lat: 12.9165, lng: 79.1325 },
+  karur: { lat: 10.9601, lng: 78.0766 },
+  dharmapuri: { lat: 12.1211, lng: 78.1582 },
+  thanjavur: { lat: 10.7870, lng: 79.1378 },
+  kanchipuram: { lat: 12.8342, lng: 79.7036 },
+  kancheepuram: { lat: 12.8342, lng: 79.7036 },
+  chengalpattu: { lat: 12.6939, lng: 79.9757 },
+  thiruvallur: { lat: 13.1432, lng: 79.9074 },
+  dindigul: { lat: 10.3673, lng: 77.9803 },
+  sivaganga: { lat: 9.8433, lng: 78.4809 },
+  ramanathapuram: { lat: 9.3639, lng: 78.8395 },
+  theni: { lat: 10.0104, lng: 77.4768 },
+  nilgiris: { lat: 11.4102, lng: 76.6950 },
+  cuddalore: { lat: 11.7480, lng: 79.7714 },
+  krishnagiri: { lat: 12.5186, lng: 78.2137 },
+  namakkal: { lat: 11.2189, lng: 78.1674 },
+  pudukkottai: { lat: 10.3797, lng: 78.8208 },
+  nagapattinam: { lat: 10.7672, lng: 79.8449 },
+  ariyalur: { lat: 11.1401, lng: 79.0786 },
+  perambalur: { lat: 11.2342, lng: 78.8820 },
+  virudhunagar: { lat: 9.5680, lng: 77.9624 },
+  thoothukudi: { lat: 8.7642, lng: 78.1348 },
+  tenkasi: { lat: 8.9594, lng: 77.3150 },
+  kanyakumari: { lat: 8.0883, lng: 77.5385 },
+  tirupathur: { lat: 12.4925, lng: 78.5678 },
+  ranipet: { lat: 12.9272, lng: 79.3330 },
+  kallakurichi: { lat: 11.7383, lng: 78.9639 },
+  villupuram: { lat: 11.9401, lng: 79.4861 },
+  mayiladuthurai: { lat: 11.1075, lng: 79.6524 },
+  thiruvarur: { lat: 10.7725, lng: 79.6365 },
+};
+
+function matchesDistrict(complaintDist?: string, filterDist?: string): boolean {
+  if (!filterDist || filterDist === 'all' || filterDist === 'All Districts') return true;
+  if (!complaintDist) return false;
+  const c = complaintDist.trim().toLowerCase();
+  const f = filterDist.trim().toLowerCase();
+  if (c === f) return true;
+  if ((c.includes('trichy') || c.includes('tiruchirappalli')) && (f.includes('trichy') || f.includes('tiruchirappalli'))) return true;
+  if (c.includes('kanchi') && f.includes('kanchi')) return true;
+  return false;
+}
+
 /**
  * Executes the Unified Analytics & Data Mining Pipeline on real complaint records.
  */
@@ -97,15 +189,16 @@ export function executeUnifiedAnalyticsPipeline(
     const createdAt = item.created_at || new Date().toISOString();
     const itemTime = new Date(createdAt).getTime();
 
-    // Date Range Filter
-    if (timeCutoffMs > 0 && now - itemTime > timeCutoffMs) continue;
+    // Date Range Filter (only filter if valid past date and within window)
+    if (timeCutoffMs > 0 && !isNaN(itemTime) && now - itemTime > timeCutoffMs) continue;
 
     // Department Filter
     if (filters.departmentId && filters.departmentId !== 'all' && filters.departmentId !== 'All Departments') {
       const matchDep =
         item.department_id === filters.departmentId ||
         item.department_name?.toLowerCase() === filters.departmentId.toLowerCase() ||
-        item.department?.name?.toLowerCase() === filters.departmentId.toLowerCase();
+        item.department?.name?.toLowerCase() === filters.departmentId.toLowerCase() ||
+        item.department?.code?.toLowerCase() === filters.departmentId.toLowerCase();
       if (!matchDep) continue;
     }
 
@@ -113,7 +206,9 @@ export function executeUnifiedAnalyticsPipeline(
     if (filters.categoryId && filters.categoryId !== 'all' && filters.categoryId !== 'All Categories') {
       const matchCat =
         item.category_id === filters.categoryId ||
-        item.category_name?.toLowerCase() === filters.categoryId.toLowerCase();
+        item.category_name?.toLowerCase() === filters.categoryId.toLowerCase() ||
+        item.category?.name?.toLowerCase() === filters.categoryId.toLowerCase() ||
+        item.category?.code?.toLowerCase() === filters.categoryId.toLowerCase();
       if (!matchCat) continue;
     }
 
@@ -128,8 +223,8 @@ export function executeUnifiedAnalyticsPipeline(
     }
 
     // District Filter
-    if (filters.district && filters.district !== 'all' && filters.district !== 'All Districts') {
-      if (item.district?.toLowerCase() !== filters.district.toLowerCase()) continue;
+    if (!matchesDistrict(item.district, filters.district)) {
+      continue;
     }
 
     // Ward Filter
@@ -137,18 +232,34 @@ export function executeUnifiedAnalyticsPipeline(
       if (item.ward !== filters.ward) continue;
     }
 
-    // Geolocation fallbacks
-    const lat = item.latitude ? Number(item.latitude) : 13.0418 + ((item.ward || 114) % 20 - 10) * 0.008;
-    const lng = item.longitude ? Number(item.longitude) : 80.2341 + ((item.ward || 114) % 15 - 7) * 0.008;
+    // Geolocation Resolution: Priority to raw lat/lng, then PostGIS location, then District Centroid, then fallback
+    const parsedLoc = parsePostGisLocation(item.location);
+    const distKey = (item.district || 'chennai').toLowerCase().trim();
+    const distCentroid = DISTRICT_CENTROIDS[distKey] || DISTRICT_CENTROIDS.chennai;
+
+    let lat = distCentroid.lat + ((item.ward || 114) % 20 - 10) * 0.008;
+    let lng = distCentroid.lng + ((item.ward || 114) % 15 - 7) * 0.008;
+
+    if (item.latitude !== undefined && item.latitude !== null && !isNaN(Number(item.latitude))) {
+      lat = Number(item.latitude);
+    } else if (parsedLoc?.latitude) {
+      lat = parsedLoc.latitude;
+    }
+
+    if (item.longitude !== undefined && item.longitude !== null && !isNaN(Number(item.longitude))) {
+      lng = Number(item.longitude);
+    } else if (parsedLoc?.longitude) {
+      lng = parsedLoc.longitude;
+    }
 
     filteredPoints.push({
       id: item.id || `pt-${Math.random().toString(36).substring(2, 9)}`,
       tracking_id: item.tracking_id || `CC-TN-2026-${Math.floor(100000 + Math.random() * 900000)}`,
       title: item.title || 'Civic Infrastructure Complaint',
       description: item.description || '',
-      category_id: item.category_id,
+      category_id: item.category_id || item.category?.code,
       category_name: item.category_name || item.category?.name || 'General Civic',
-      department_id: item.department_id || 'd0000001-0000-0000-0000-000000000008',
+      department_id: item.department_id || item.department?.id || 'd0000001-0000-0000-0000-000000000008',
       department_name: item.department_name || item.department?.name || 'General Administration',
       status: item.status || 'created',
       priority: item.priority || 'medium',
