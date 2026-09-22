@@ -94,17 +94,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Security Gate: All government/official roles require the secret authorization code '1927'
-    if (role !== UserRole.CITIZEN && secretCode !== '1927') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Access Denied: Government official login requires the valid 4-digit secret authorization passcode.',
-        },
-        { status: 403 }
-      );
-    }
-
     const demoData = DEMO_USERS[role] || {};
     const email = demoData.email || `${role}@civicconnect.tn.gov.in`;
     const displayName = demoData.display_name || ROLE_LABELS[role];

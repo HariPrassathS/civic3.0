@@ -673,8 +673,8 @@ export default function AdminConsolePage() {
 
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-1">
                 <span className="text-xs font-bold text-slate-500">Access Control & Security</span>
-                <div className="text-lg font-black text-emerald-600 font-mono">Passcode Gated</div>
-                <p className="text-[10px] text-indigo-600 font-semibold">Secret Code: 1927 Enforced</p>
+                <div className="text-lg font-black text-emerald-600 font-mono">Direct Access</div>
+                <p className="text-[10px] text-emerald-600 font-semibold">1-Click Portal Login Enabled</p>
               </div>
             </div>
           </div>
