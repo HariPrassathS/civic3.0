@@ -83,7 +83,11 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: result.errors?.[0] || 'Failed to register voice complaint',
+          is_rejected: Boolean(result.is_rejected),
+          rejection_reason: result.rejection_reason || null,
+          rejection_reason_ta: result.rejection_reason_ta || null,
+          detected_content: result.detected_content || null,
+          error: result.errors?.[0] || result.rejection_reason || 'Failed to register voice complaint',
           errors: result.errors,
         },
         { status: 400 }

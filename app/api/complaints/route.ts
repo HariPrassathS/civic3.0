@@ -292,7 +292,11 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: result.errors?.[0] || 'Validation failed',
+          is_rejected: Boolean(result.is_rejected),
+          rejection_reason: result.rejection_reason || null,
+          rejection_reason_ta: result.rejection_reason_ta || null,
+          detected_content: result.detected_content || null,
+          error: result.errors?.[0] || result.rejection_reason || 'Validation failed',
           errors: result.errors,
         },
         { status: 400 }

@@ -41,6 +41,10 @@ import { validateAndGroundCategory } from '@/lib/ai/schemas';
 
 export interface CreateComplaintResult {
   success: boolean;
+  is_rejected?: boolean;
+  rejection_reason?: string | null;
+  rejection_reason_ta?: string | null;
+  detected_content?: string;
   complaint?: Complaint & {
     media?: ComplaintMedia[];
     updates?: ComplaintUpdate[];
@@ -239,7 +243,7 @@ export class ComplaintEngine {
       }
     }
 
-    // 5. Multi-Signal Evidence Analysis (Citizen Before Evidence)
+    // 5. Multi-Signal Evidence Analysis & Verification (Citizen Before Evidence)
     const mediaRecords: ComplaintMedia[] = [];
     const mediaInputList = input.media || [];
 
@@ -262,6 +266,35 @@ export class ComplaintEngine {
         });
       } catch (evErr) {
         console.warn('[Evidence Analysis Warn]:', evErr);
+      }
+
+      // Strict AI Verification & Rejection Gate:
+      // If photo is not a genuine civic issue or does not match the description, reject submission immediately
+      if (
+        evidenceAnalysis &&
+        (evidenceAnalysis.approved === false ||
+          evidenceAnalysis.is_valid_civic_issue === false ||
+          evidenceAnalysis.description_match === false ||
+          evidenceAnalysis.evidence_status === 'INCONSISTENT' ||
+          evidenceAnalysis.evidence_status === 'INSUFFICIENT_EVIDENCE')
+      ) {
+        const rejectionMsgEn =
+          evidenceAnalysis.rejection_reason ||
+          evidenceAnalysis.reason ||
+          'The uploaded photo does not match the reported civic problem. Please upload a clear photo of the actual issue.';
+        const rejectionMsgTa =
+          evidenceAnalysis.rejection_reason_ta ||
+          evidenceAnalysis.citizen_message_ta ||
+          'பதிவேற்றப்பட்ட புகைப்படம் புகாருடன் பொருந்தவில்லை. தயவுசெய்து சரியான புகைப்படத்தை பதிவேற்றவும்.';
+
+        return {
+          success: false,
+          is_rejected: true,
+          rejection_reason: rejectionMsgEn,
+          rejection_reason_ta: rejectionMsgTa,
+          detected_content: evidenceAnalysis.detected_content || 'Unmatched image',
+          errors: [rejectionMsgEn],
+        };
       }
 
       mediaRecords.push({

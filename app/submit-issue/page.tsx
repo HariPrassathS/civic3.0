@@ -9,6 +9,9 @@ import Link from 'next/link';
 import {
   CheckCircle2,
   AlertCircle,
+  XCircle,
+  AlertTriangle,
+  Trash2,
   Copy,
   ArrowRight,
   PlusCircle,
@@ -73,6 +76,11 @@ export default function SubmitIssuePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rejection, setRejection] = useState<{
+    rejection_reason: string;
+    rejection_reason_ta?: string;
+    detected_content?: string;
+  } | null>(null);
   const { user: authUser } = useAuth();
   const [submittedComplaint, setSubmittedComplaint] = useState<SubmittedComplaint | null>(null);
   const [copied, setCopied] = useState(false);
@@ -132,6 +140,7 @@ export default function SubmitIssuePage() {
 
     setIsSubmitting(true);
     setError(null);
+    setRejection(null);
 
     try {
       const payload = {
@@ -161,6 +170,21 @@ export default function SubmitIssuePage() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
+        if (data.is_rejected || data.rejection_reason) {
+          setRejection({
+            rejection_reason:
+              data.rejection_reason ||
+              data.error ||
+              'The uploaded photo does not match the reported civic issue. Please upload an authentic photo of the problem.',
+            rejection_reason_ta:
+              data.rejection_reason_ta ||
+              'பதிவேற்றப்பட்ட புகைப்படம் புகாருடன் பொருந்தவில்லை. தயவுசெய்து சரியான புகைப்படத்தை பதிவேற்றவும்.',
+            detected_content: data.detected_content,
+          });
+          setError(null);
+          window.scrollTo({ top: 100, behavior: 'smooth' });
+          return;
+        }
         throw new Error(data.error || 'Failed to submit grievance');
       }
 
@@ -309,6 +333,75 @@ export default function SubmitIssuePage() {
           </button>
         </div>
 
+        {/* AI Evidence Rejection Banner */}
+        {rejection && (
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-rose-500/15 via-rose-500/10 to-amber-500/10 border-2 border-rose-500/40 text-slate-900 dark:text-slate-100 shadow-xl space-y-4 animate-in fade-in slide-in-from-top-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-500 flex items-center justify-center shrink-0">
+                  <XCircle className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/80 px-2.5 py-0.5 rounded-full border border-rose-300 dark:border-rose-800">
+                      AI Verification Failed • மனு நிராகரிக்கப்பட்டது
+                    </span>
+                    {rejection.detected_content && (
+                      <span className="text-[11px] font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-800">
+                        Detected: {rejection.detected_content}
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="text-sm sm:text-base font-bold text-rose-700 dark:text-rose-300 mt-1">
+                    Grievance Not Registered: Photo Evidence Mismatch
+                  </h2>
+                </div>
+              </div>
+            </div>
+
+            {/* Rejection Reasons (English + Tamil) */}
+            <div className="space-y-2.5 bg-white/80 dark:bg-slate-950/70 p-4 rounded-xl border border-rose-200 dark:border-rose-900/50">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                  Rejection Reason (English):
+                </span>
+                <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 font-medium leading-relaxed">
+                  {rejection.rejection_reason}
+                </p>
+              </div>
+
+              {rejection.rejection_reason_ta && (
+                <div className="space-y-1 pt-2 border-t border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400 tracking-wider">
+                    நிராகரிப்புக்கான காரணம் (தமிழ்):
+                  </span>
+                  <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 leading-relaxed">
+                    {rejection.rejection_reason_ta}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Action guidance */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+              <p className="text-slate-600 dark:text-slate-400 text-[11px]">
+                💡 <strong>Next Step:</strong> Remove the unmatched photo below and upload a clear on-site photograph of the reported issue.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setMedia([]);
+                  setRejection(null);
+                }}
+                className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-md"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear Photo & Re-upload</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {error && (
           <div className="p-4 rounded-2xl bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-3 animate-in fade-in">
             <AlertCircle className="w-5 h-5 text-rose-500 dark:text-rose-400 shrink-0" />
@@ -408,7 +501,10 @@ export default function SubmitIssuePage() {
           {/* STEP 4: PHOTO & VIDEO UPLOADER (MANDATORY FOR WEB GRIEVANCES) */}
           <MediaUploader
             media={media}
-            onChange={setMedia}
+            onChange={(items) => {
+              setMedia(items);
+              if (rejection) setRejection(null);
+            }}
             maxPhotos={4}
             maxVideos={1}
             required={true}

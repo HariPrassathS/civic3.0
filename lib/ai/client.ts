@@ -10,8 +10,8 @@ let groqClientInstance: Groq | null = null;
 export const GROQ_MODELS = {
   PRIMARY: process.env.GROQ_PRIMARY_MODEL || 'openai/gpt-oss-120b',
   FAST: process.env.GROQ_FAST_MODEL || 'openai/gpt-oss-20b',
-  FALLBACK: process.env.GROQ_FALLBACK_MODEL || 'qwen/qwen3.6-27b',
-  VISION: process.env.GROQ_VISION_MODEL || 'openai/gpt-oss-120b',
+  FALLBACK: process.env.GROQ_FALLBACK_MODEL || 'qwen/qwen3.8-27b',
+  VISION: process.env.GROQ_VISION_MODEL || 'qwen/qwen3.8-27b',
   WHISPER: process.env.GROQ_WHISPER_MODEL || 'whisper-large-v3-turbo',
 };
 

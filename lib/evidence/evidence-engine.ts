@@ -43,8 +43,11 @@ export interface BeforeEvidenceInput {
 }
 
 export interface BeforeEvidenceResult {
+  approved: boolean;
+  is_valid_civic_issue: boolean;
   evidence_status: EvidenceStatus;
   confidence: number;
+  detected_content?: string;
   detected_issue: string;
   detected_category: string;
   severity: 'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW';
@@ -53,6 +56,8 @@ export interface BeforeEvidenceResult {
   visual_quality: VisualQuality;
   manipulation_risk: ManipulationRisk;
   reason: string;
+  rejection_reason?: string | null;
+  rejection_reason_ta?: string | null;
   citizen_message_en: string;
   citizen_message_ta: string;
   needs_human_review: boolean;
@@ -149,24 +154,27 @@ export class EvidenceEngine {
     const urlLower = input.mediaUrl.toLowerCase();
     const isQualityFailure =
       input.isSimulatedQualityFail ||
-      urlLower.includes('dark') ||
       urlLower.includes('blur') ||
       urlLower.includes('unclear') ||
-      urlLower.includes('corrupt') ||
-      urlLower.includes('black');
+      urlLower.includes('corrupt');
 
     if (isQualityFailure) {
       const qualityResult: BeforeEvidenceResult = {
+        approved: false,
+        is_valid_civic_issue: false,
         evidence_status: 'INSUFFICIENT_EVIDENCE',
-        confidence: 0.85,
-        detected_issue: 'Unclear or degraded visual capture',
+        confidence: 0.88,
+        detected_content: 'Unclear or blurred image',
+        detected_issue: 'Degraded visual capture',
         detected_category: input.category || 'General',
         severity: 'MEDIUM',
         description_match: false,
         location_consistency: 'UNVERIFIABLE',
-        visual_quality: 'DARK',
+        visual_quality: 'BLURRED',
         manipulation_risk: 'LOW',
-        reason: 'The uploaded photo is too dark or blurred to clearly identify the civic problem.',
+        reason: 'The uploaded photo is too blurred to clearly identify the civic problem.',
+        rejection_reason: 'The uploaded photo is too blurry or unclear to identify the reported problem. Please upload a clear photo taken at the site.',
+        rejection_reason_ta: 'பதிவேற்றப்பட்ட புகைப்படம் மங்கலாக உள்ளதால் புகாரை உறுதிசெய்ய முடியவில்லை. தயவுசெய்து தெளிவான புகைப்படத்தை பதிவேற்றவும்.',
         citizen_message_en: 'We couldn’t clearly confirm the problem from this photo. Please upload a clearer, well-lit photo showing the issue.',
         citizen_message_ta: 'இந்த புகைப்படத்தில் பிரச்சனை தெளிவாக தெரியவில்லை. தயவுசெய்து தெளிவான புகைப்படத்தை பதிவேற்றவும்.',
         needs_human_review: false,
@@ -178,7 +186,7 @@ export class EvidenceEngine {
       return qualityResult;
     }
 
-    // Step B: Multi-signal prompt assembly for Groq Multimodal / LLM
+    // Step B: Multi-signal multimodal prompt assembly for Groq Vision Model
     const groq = getGroqClient();
     if (!groq) {
       safeLog('warn', 'Groq client unavailable, generating structured rule-grounded before evidence assessment', {
@@ -190,49 +198,76 @@ export class EvidenceEngine {
     }
 
     try {
-      const combinedText = `
-Grievance Title: ${input.title}
-Citizen Report: ${input.description}
-Voice Transcript: ${input.voiceTranscript || 'None'}
-Category: ${input.category || 'Municipal Infrastructure & Public Services'}
-Reported Location: ${input.address || 'Tamil Nadu Ward Location'}
-GPS Coordinates: ${input.latitude ? `${input.latitude}, ${input.longitude}` : 'Captured on-site'}
-Visual Evidence Context: On-site photographic evidence captured by the citizen documenting the reported civic situation (${input.title}).
-`.trim();
+      const systemPrompt = `You are the Civic Complaint Image Verification AI for CivicConnect Tamil Nadu (Government of Tamil Nadu).
+Analyze the citizen's uploaded on-site photo and compare it with the reported complaint title, description, and category.
 
-      const systemPrompt = `You are the AI Evidence Verification & Municipal Triage Engine for CivicConnect TN (Government of Tamil Nadu e-Governance).
-Evaluate the citizen's on-site photo evidence in correlation with their grievance report.
+Verification & Decision Rules:
+1. Determine what is depicted in the image.
+2. Check if the image depicts a REAL civic / public infrastructure / municipal issue (e.g., potholes, damaged roads, garbage dumps, sewage overflow, broken water pipeline, dead streetlights, dark road at night, hanging electrical wires, drainage clogging, traffic hazards, public transport issues).
+   If the photo depicts a selfie, person portrait, food, beverage/coffee cup, pet/cat/dog, bedroom/living room interior, fashion item/shoes, meme, movie screenshot, or random non-civic object, you MUST set:
+   "is_valid_civic_issue": false,
+   "approved": false,
+   "evidence_status": "INCONSISTENT"
+3. Check if the image MATCHES the reported complaint title and description:
+   If complaint is "Pothole" but photo shows garbage, food, or something completely different, you MUST set:
+   "description_match": false,
+   "approved": false,
+   "evidence_status": "INCONSISTENT"
+4. If "approved": false, generate:
+   - "rejection_reason": Professional, clear explanation in English stating what was detected in the photo and why it does not substantiate the reported civic complaint, instructing them to upload a photo of the actual issue.
+   - "rejection_reason_ta": High-quality polite Tamil translation of the rejection reason.
+5. If "approved": true (both is_valid_civic_issue and description_match are true):
+   - "evidence_status": "CONSISTENT",
+   - "rejection_reason": null,
+   - "rejection_reason_ta": null
 
-Evaluation Principles:
-1. Citizen photo evidence serves as authentic on-site documentation of the reported public facility, infrastructure, or civic situation.
-2. For public transport, bus terminals, road traffic, and crowd reports: Visuals showing bus stands, passenger queues, heavy commuter density, and vehicles substantiate the demand for transit frequency and service enhancement.
-3. For roads, potholes, drainage, sanitation, streetlights, and public amenities: Visuals of the location, surface, waste, lighting, or fixture corroborate the reported municipal defect.
-4. Mark "evidence_status" as "CONSISTENT", "description_match" as true, and "location_consistency" as "SUPPORTED".
-5. In "reason", provide a constructive 1-2 sentence statement for municipal engineers confirming that the on-site photo substantiates the citizen's grievance.
-6. In "citizen_message_en" and "citizen_message_ta", provide courteous, reassuring confirmation in English and Tamil that their photo proof was verified.
-
-Respond ONLY with a JSON object matching this schema:
+Respond ONLY with valid JSON matching this schema:
 {
-  "evidence_status": "CONSISTENT" | "PARTIALLY_CONSISTENT" | "INCONSISTENT" | "INSUFFICIENT_EVIDENCE" | "NEEDS_REVIEW",
-  "confidence": number (0.90 to 0.99),
-  "detected_issue": string (concise description of verified civic defect or situation),
-  "detected_category": string (e.g. "Public Transport", "Roads & Potholes", "Sanitation & Waste", "Water Supply", "Street Lighting"),
+  "approved": boolean,
+  "is_valid_civic_issue": boolean,
+  "description_match": boolean,
+  "evidence_status": "CONSISTENT" | "INCONSISTENT" | "INSUFFICIENT_EVIDENCE",
+  "confidence": number,
+  "detected_content": string,
+  "detected_issue": string,
+  "detected_category": string,
   "severity": "URGENT" | "HIGH" | "MEDIUM" | "LOW",
-  "description_match": true,
-  "location_consistency": "SUPPORTED",
-  "visual_quality": "CLEAR",
-  "manipulation_risk": "LOW",
-  "reason": string (clear affirmative confirmation explaining how the visual evidence supports the grievance),
-  "citizen_message_en": string (reassuring citizen message in English),
-  "citizen_message_ta": string (reassuring Tamil translation),
-  "needs_human_review": false
+  "location_consistency": "SUPPORTED" | "DISCREPANCY" | "UNVERIFIABLE",
+  "visual_quality": "CLEAR" | "BLURRED" | "DARK" | "OBSTRUCTED" | "INSUFFICIENT",
+  "manipulation_risk": "LOW" | "MEDIUM" | "HIGH",
+  "reason": string,
+  "rejection_reason": string | null,
+  "rejection_reason_ta": string | null,
+  "citizen_message_en": string,
+  "citizen_message_ta": string,
+  "needs_human_review": boolean
 }`;
 
+      const textContext = `Complaint Title: ${input.title}
+Complaint Description: ${input.description}
+Voice Transcript: ${input.voiceTranscript || 'None'}
+Reported Category: ${input.category || 'Municipal Infrastructure & Public Services'}
+Reported Location: ${input.address || 'Tamil Nadu Location'}
+GPS Coordinates: ${input.latitude ? `${input.latitude}, ${input.longitude}` : 'Captured on-site'}`.trim();
+
+      const userContent: Array<
+        | { type: 'text'; text: string }
+        | { type: 'image_url'; image_url: { url: string } }
+      > = [{ type: 'text', text: maskPii(textContext) }];
+
+      // Attach image if valid URL or data URL
+      if (input.mediaUrl && (input.mediaUrl.startsWith('http') || input.mediaUrl.startsWith('data:image/'))) {
+        userContent.push({
+          type: 'image_url',
+          image_url: { url: input.mediaUrl },
+        });
+      }
+
       const completion = await groq.chat.completions.create({
-        model: GROQ_MODELS.PRIMARY || GROQ_MODELS.VISION,
+        model: GROQ_MODELS.VISION,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: maskPii(combinedText) },
+          { role: 'user', content: userContent as any },
         ],
         temperature: 0.1,
         response_format: { type: 'json_object' },
@@ -241,23 +276,24 @@ Respond ONLY with a JSON object matching this schema:
       const raw = completion.choices[0]?.message?.content || '{}';
       const parsed = JSON.parse(raw);
 
-      const statusMap: Record<string, EvidenceStatus> = {
-        CONSISTENT: 'CONSISTENT',
-        PARTIALLY_CONSISTENT: 'CONSISTENT', // Treat partially consistent as supportive consistent
-        INCONSISTENT: 'INCONSISTENT',
-        INSUFFICIENT_EVIDENCE: 'INSUFFICIENT_EVIDENCE',
-        NEEDS_REVIEW: 'NEEDS_REVIEW',
-      };
+      const isApproved = Boolean(
+        parsed.approved === true &&
+        parsed.is_valid_civic_issue !== false &&
+        parsed.description_match !== false
+      );
 
-      const finalStatus = statusMap[parsed.evidence_status] || 'CONSISTENT';
+      const finalStatus: EvidenceStatus = isApproved ? 'CONSISTENT' : 'INCONSISTENT';
 
       const result: BeforeEvidenceResult = {
+        approved: isApproved,
+        is_valid_civic_issue: Boolean(parsed.is_valid_civic_issue ?? isApproved),
         evidence_status: finalStatus,
         confidence: typeof parsed.confidence === 'number' ? Math.min(0.99, Math.max(0.7, parsed.confidence)) : 0.95,
+        detected_content: parsed.detected_content || (isApproved ? 'Civic infrastructure site' : 'Unmatched visual content'),
         detected_issue: parsed.detected_issue || input.title,
         detected_category: parsed.detected_category || input.category || 'Municipal Services',
         severity: ['URGENT', 'HIGH', 'MEDIUM', 'LOW'].includes(parsed.severity) ? parsed.severity : 'MEDIUM',
-        description_match: Boolean(parsed.description_match ?? true),
+        description_match: Boolean(parsed.description_match ?? isApproved),
         location_consistency: ['SUPPORTED', 'DISCREPANCY', 'UNVERIFIABLE'].includes(parsed.location_consistency)
           ? parsed.location_consistency
           : 'SUPPORTED',
@@ -269,16 +305,28 @@ Respond ONLY with a JSON object matching this schema:
           : 'LOW',
         reason:
           parsed.reason ||
-          `On-site photographic evidence supports the reported ${input.category || 'civic'} issue for municipal department action.`,
+          (isApproved
+            ? `On-site photographic evidence validates the reported ${input.category || 'civic'} issue.`
+            : `Uploaded photo does not match the reported ${input.title}.`),
+        rejection_reason: !isApproved
+          ? (parsed.rejection_reason || 'The uploaded photo does not match the reported civic problem. Please upload a clear photo of the actual issue.')
+          : null,
+        rejection_reason_ta: !isApproved
+          ? (parsed.rejection_reason_ta || 'பதிவேற்றப்பட்ட புகைப்படம் புகாருடன் பொருந்தவில்லை. தயவுசெய்து உண்மையான பிரச்சனை உள்ள புகைப்படத்தை பதிவேற்றவும்.')
+          : null,
         citizen_message_en:
           parsed.citizen_message_en ||
-          'Your on-site photo evidence has been verified and attached to the municipal work ticket.',
+          (isApproved
+            ? 'Your on-site photo evidence has been verified and attached to the municipal work ticket.'
+            : 'Evidence verification failed. Please upload a photo showing the actual civic issue.'),
         citizen_message_ta:
           parsed.citizen_message_ta ||
-          'உங்கள் புகைப்பட ஆதாரம் சரிபார்க்கப்பட்டு, பணி ஆணையில் இணைக்கப்பட்டுள்ளது.',
-        needs_human_review: finalStatus === 'INCONSISTENT' || Boolean(parsed.needs_human_review),
+          (isApproved
+            ? 'உங்கள் புகைப்பட ஆதாரம் சரிபார்க்கப்பட்டு, பணி ஆணையில் இணைக்கப்பட்டுள்ளது.'
+            : 'புகைப்பட ஆதாரம் பொருந்தவில்லை. தயவுசெய்து சரியான புகைப்படத்தை பதிவேற்றவும்.'),
+        needs_human_review: !isApproved || Boolean(parsed.needs_human_review),
         media_hash: mediaHash,
-        model_used: GROQ_MODELS.PRIMARY || GROQ_MODELS.VISION,
+        model_used: GROQ_MODELS.VISION,
         analyzed_at: nowIso,
       };
 
@@ -538,8 +586,11 @@ Respond ONLY with a JSON object matching this schema:
 
     if (isMismatchedImage) {
       return {
+        approved: false,
+        is_valid_civic_issue: true,
         evidence_status: 'INCONSISTENT',
         confidence: 0.86,
+        detected_content: 'Mismatched infrastructure photo',
         detected_issue: 'Category and photo evidence mismatch',
         detected_category: input.category || 'Municipal Services',
         severity: 'MEDIUM',
@@ -547,9 +598,11 @@ Respond ONLY with a JSON object matching this schema:
         location_consistency: 'SUPPORTED',
         visual_quality: 'CLEAR',
         manipulation_risk: 'LOW',
-        reason: 'The uploaded image appears to depict road/pothole infrastructure rather than water supply facilities, requiring officer verification.',
-        citizen_message_en: 'Your evidence has been flagged for municipal officer manual review.',
-        citizen_message_ta: 'உங்கள் புகைப்படம் அதிகாரி மதிப்பாய்வுக்காக அனுப்பப்பட்டுள்ளது.',
+        reason: 'The uploaded image appears to depict road/pothole infrastructure rather than water supply facilities.',
+        rejection_reason: 'The uploaded photo does not match the reported civic category or description. Please upload a photo of the actual issue.',
+        rejection_reason_ta: 'பதிவேற்றப்பட்ட புகைப்படம் புகாருடன் பொருந்தவில்லை. தயவுசெய்து சரியான புகைப்படத்தை பதிவேற்றவும்.',
+        citizen_message_en: 'Your evidence does not match the reported issue. Please re-upload.',
+        citizen_message_ta: 'உங்கள் புகைப்படம் புகாருடன் பொருந்தவில்லை.',
         needs_human_review: true,
         media_hash: mediaHash,
         model_used: GROQ_MODELS.VISION,
@@ -616,8 +669,11 @@ Respond ONLY with a JSON object matching this schema:
     }
 
     return {
+      approved: true,
+      is_valid_civic_issue: true,
       evidence_status: status,
       confidence: 0.94,
+      detected_content: `${detectedCategory} site condition`,
       detected_issue: input.title,
       detected_category: detectedCategory,
       severity,
@@ -626,6 +682,8 @@ Respond ONLY with a JSON object matching this schema:
       visual_quality: 'CLEAR',
       manipulation_risk: 'LOW',
       reason,
+      rejection_reason: null,
+      rejection_reason_ta: null,
       citizen_message_en: 'Your on-site photo evidence has been verified and attached to the municipal work ticket.',
       citizen_message_ta: 'உங்கள் புகைப்பட ஆதாரம் சரிபார்க்கப்பட்டு, பணி ஆணையில் இணைக்கப்பட்டுள்ளது.',
       needs_human_review: false,
