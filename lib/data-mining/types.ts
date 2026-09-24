@@ -222,6 +222,12 @@ export interface AnalyticsFilterState {
   dataSource?: 'live' | 'all';
 }
 
+export interface DataSourceMetrics {
+  live_count: number;
+  historical_count: number;
+  active_source: 'live' | 'all';
+}
+
 export interface UnifiedAnalyticsResponse {
   summary: KPISummary;
   time_series: TimeSeriesPoint[];
@@ -255,4 +261,6 @@ export interface UnifiedAnalyticsResponse {
   has_data: boolean;
   empty_message?: string;
   computed_at: string;
+  data_sources?: DataSourceMetrics;
 }
+

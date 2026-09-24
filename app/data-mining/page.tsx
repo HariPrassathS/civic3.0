@@ -204,6 +204,7 @@ export default function DataMiningPage() {
           onChangeFilters={setFilters}
           onResetFilters={handleResetFilters}
           isLoading={isLoading}
+          dataSources={analyticsData?.data_sources}
         />
 
         {/* 8 TOP ANIMATED COUNT-UP KPI CARDS */}

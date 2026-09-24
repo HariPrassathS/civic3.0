@@ -6,13 +6,14 @@
 
 import React from 'react';
 import { Filter, Calendar, Building2, AlertTriangle, CheckCircle2, MapPin, RefreshCw, X, Database, Sparkles } from 'lucide-react';
-import { AnalyticsFilterState } from '@/lib/data-mining/types';
+import { AnalyticsFilterState, DataSourceMetrics } from '@/lib/data-mining/types';
 
 interface AnalyticsFiltersBarProps {
   filters: AnalyticsFilterState;
   onChangeFilters: (filters: AnalyticsFilterState) => void;
   onResetFilters: () => void;
   isLoading?: boolean;
+  dataSources?: DataSourceMetrics;
 }
 
 const TN_DISTRICTS = [
@@ -100,6 +101,7 @@ export function AnalyticsFiltersBar({
   onChangeFilters,
   onResetFilters,
   isLoading = false,
+  dataSources,
 }: AnalyticsFiltersBarProps) {
   const hasActiveFilters =
     filters.timeRange !== '90d' ||
@@ -108,6 +110,9 @@ export function AnalyticsFiltersBar({
     (filters.status && filters.status !== 'all') ||
     (filters.district && filters.district !== 'All Districts') ||
     filters.ward !== undefined;
+
+  const liveCountDisplay = dataSources?.live_count !== undefined ? ` (${dataSources.live_count})` : '';
+  const historicalCountDisplay = dataSources?.historical_count !== undefined ? ` (${dataSources.historical_count})` : ' (455)';
 
   return (
     <div className="p-4 sm:p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3.5 shadow-md">
@@ -135,7 +140,7 @@ export function AnalyticsFiltersBar({
               }`}
             >
               <Database className="w-3 h-3 text-emerald-300" />
-              <span>Live DB Only (19)</span>
+              <span>Live DB Only{liveCountDisplay}</span>
             </button>
 
             <button
@@ -148,7 +153,7 @@ export function AnalyticsFiltersBar({
               }`}
             >
               <Sparkles className="w-3 h-3 text-indigo-300" />
-              <span>+ Historical AI Dataset (57)</span>
+              <span>+ Historical AI Dataset{historicalCountDisplay}</span>
             </button>
           </div>
 

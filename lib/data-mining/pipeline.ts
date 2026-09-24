@@ -165,24 +165,44 @@ export function executeUnifiedAnalyticsPipeline(
   // If includeHistorical is true or dataSource is 'all', merge historical urban benchmark dataset (Simulation mode).
   const isHistoricalIncluded = filters.includeHistorical === true || filters.dataSource === 'all';
 
-  const rawList: any[] = [];
-
-  // Prioritize live complaints from Supabase
+  // Extract all available live complaints (Supabase DB + In-Memory State)
+  const liveList: any[] = [];
   for (const ec of externalComplaints) {
-    if (!rawList.some((c) => c.tracking_id === ec.tracking_id)) {
-      rawList.push(ec);
+    if (!liveList.some((c) => c.tracking_id === ec.tracking_id)) {
+      liveList.push(ec);
     }
   }
-
-  // Add memory-state complaints
   for (const mc of MEMORY_COMPLAINTS) {
-    if (!rawList.some((c) => c.tracking_id === mc.tracking_id)) {
-      rawList.push(mc);
+    if (!liveList.some((c) => c.tracking_id === mc.tracking_id)) {
+      liveList.push(mc);
     }
   }
 
-  // Include Historical Seed Dataset only when requested or as graceful fallback if zero live complaints exist
-  if (isHistoricalIncluded || rawList.length === 0) {
+  const liveCount = liveList.length;
+  const historicalCount = HISTORICAL_MINING_DATASET.length;
+
+  const rawList: any[] = [];
+  if (isHistoricalIncluded) {
+    // Merged Mode: Live complaints + Historical Benchmark Dataset
+    for (const item of liveList) {
+      if (!rawList.some((c) => c.tracking_id === item.tracking_id)) {
+        rawList.push(item);
+      }
+    }
+    for (const hc of HISTORICAL_MINING_DATASET) {
+      if (!rawList.some((c) => c.tracking_id === hc.tracking_id)) {
+        rawList.push(hc);
+      }
+    }
+  } else if (liveCount > 0) {
+    // Strict Ground Truth Live DB Mode (Strictly isolated to live registered grievances)
+    for (const item of liveList) {
+      if (!rawList.some((c) => c.tracking_id === item.tracking_id)) {
+        rawList.push(item);
+      }
+    }
+  } else {
+    // Graceful test/mock fallback only when zero live data exists and not explicitly restricted
     for (const hc of HISTORICAL_MINING_DATASET) {
       if (!rawList.some((c) => c.tracking_id === hc.tracking_id)) {
         rawList.push(hc);
@@ -347,6 +367,11 @@ export function executeUnifiedAnalyticsPipeline(
       has_data: false,
       empty_message: 'No complaint data available for the selected filters.',
       computed_at: new Date().toISOString(),
+      data_sources: {
+        live_count: liveCount,
+        historical_count: historicalCount,
+        active_source: isHistoricalIncluded ? 'all' : 'live',
+      },
     };
   }
 
@@ -790,6 +815,11 @@ export function executeUnifiedAnalyticsPipeline(
     filters_applied: filters,
     has_data: true,
     computed_at: new Date().toISOString(),
+    data_sources: {
+      live_count: liveCount,
+      historical_count: historicalCount,
+      active_source: isHistoricalIncluded ? 'all' : 'live',
+    },
   };
 }
 
